@@ -16,8 +16,11 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.Button
+import androidx.compose.material.ButtonDefaults
 import androidx.compose.material.Card
 import androidx.compose.material.CircularProgressIndicator
 import androidx.compose.material.Icon
@@ -45,8 +48,10 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -60,11 +65,21 @@ import dev.kuhuk.jar_assignment_kuhuk.R
 import dev.kuhuk.jar_assignment_kuhuk.model.EducationCard
 import kotlinx.coroutines.launch
 import androidx.core.graphics.toColorInt
+import androidx.navigation.NavController
+import com.airbnb.lottie.compose.LottieAnimation
+import com.airbnb.lottie.compose.LottieCompositionSpec
+import com.airbnb.lottie.compose.LottieConstants
+import com.airbnb.lottie.compose.animateLottieCompositionAsState
+import com.airbnb.lottie.compose.rememberLottieComposition
+import dev.kuhuk.jar_assignment_kuhuk.model.SaveButtonCta
+import dev.kuhuk.jar_assignment_kuhuk.navigation.Routes
 
 @OptIn(ExperimentalPagerApi::class)
 @Composable
-fun OnBoardingScreen(viewModel: OnBoardingViewModel = viewModel()) {
+fun OnBoardingScreen(navController: NavController, viewModel: OnBoardingViewModel = viewModel()) {
     val cards by viewModel.cards.collectAsState()
+    val saveButtonCTA by viewModel.ctaDetails
+    val lottieUrl by viewModel.lottieUrl
 
     LaunchedEffect(Unit) {
         viewModel.fetchEducationCards()
@@ -75,13 +90,16 @@ fun OnBoardingScreen(viewModel: OnBoardingViewModel = viewModel()) {
             CircularProgressIndicator()
         }
     } else {
-        CollapsiblePager(pages = cards)
+        CollapsiblePager(navController, pages = cards, saveButtonCTA = saveButtonCTA, lottieUrl)
     }
 }
 
 @OptIn(ExperimentalPagerApi::class)
 @Composable
-fun CollapsiblePager(pages: List<EducationCard>) {
+fun CollapsiblePager(navController: NavController,
+                     pages: List<EducationCard>,
+                     saveButtonCTA: SaveButtonCta,
+                     lottieUrl: String) {
     val pagerState = rememberPagerState()
     val collapsedStates = remember { mutableStateListOf<Boolean>().apply { repeat(pages.size) { add(false) } } }
 
@@ -194,10 +212,8 @@ fun CollapsiblePager(pages: List<EducationCard>) {
                         }
                     }
                 }
-
             }
 
-            // Overlay collapsed cards vertically
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -279,6 +295,75 @@ fun CollapsiblePager(pages: List<EducationCard>) {
                         }
                     }
             }
+
+            if (pagerState.currentPage == pages.lastIndex) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(bottom = 24.dp),
+                    contentAlignment = Alignment.BottomCenter
+                ) {
+                    SaveInGoldButton(
+                        lottieUrl = lottieUrl,
+                        saveButtonCta = saveButtonCTA,
+                        onClick = {
+                            navController.navigate(Routes.landingScreen().route)
+                        }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun SaveInGoldButton(
+    lottieUrl: String,
+    saveButtonCta: SaveButtonCta,
+    onClick: () -> Unit
+) {
+    val composition by rememberLottieComposition(
+        LottieCompositionSpec.Url(lottieUrl)
+    )
+    val progress by animateLottieCompositionAsState(
+        composition = composition,
+        iterations = LottieConstants.IterateForever
+    )
+
+    Button(
+        onClick = onClick,
+        modifier = Modifier
+            .height(56.dp)
+            .padding(horizontal = 16.dp),
+        colors = ButtonDefaults.buttonColors(
+            backgroundColor = Color(saveButtonCta.backgroundColor.toColorInt()),
+            contentColor = Color.White
+        ),
+        shape = RoundedCornerShape(28.dp),
+        border = BorderStroke(
+            width = 2.dp,
+            color = Color(saveButtonCta.strokeColor.toColorInt())
+        ),
+        elevation = ButtonDefaults.elevation(defaultElevation = 0.dp)
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(
+                text = saveButtonCta.text,
+                style = TextStyle(
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(saveButtonCta.textColor.toColorInt())
+                )
+            )
+
+            LottieAnimation(
+                composition = composition,
+                progress = { progress },
+                modifier = Modifier.size(32.dp)
+            )
         }
     }
 }

@@ -24,7 +24,7 @@ fun SplashScreen(onTimeout: () -> Unit) {
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text("Welcome to", fontSize = 24.sp, color = Color.White)
-            Text("Onboarding", fontSize = 32.sp, fontWeight = FontWeight.Bold, color = Color.White)
+            Text("Onboarding", fontSize = 32.sp, fontWeight = FontWeight.Bold, color = Color(0xFFF8DC83))
         }
     }
 

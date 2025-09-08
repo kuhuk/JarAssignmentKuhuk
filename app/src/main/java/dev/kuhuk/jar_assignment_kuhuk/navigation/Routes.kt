@@ -5,6 +5,11 @@ object Routes {
         override val path = "onBoarding"
         override val route: String = path
     }
+
+    fun landingScreen() = object : Deeplink {
+        override val path = "landing"
+        override val route: String = path
+    }
 }
 
 interface Deeplink {
