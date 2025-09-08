@@ -96,12 +96,15 @@ fun OnBoardingScreen(navController: NavController, viewModel: OnBoardingViewMode
 
 @OptIn(ExperimentalPagerApi::class)
 @Composable
-fun CollapsiblePager(navController: NavController,
-                     pages: List<EducationCard>,
-                     saveButtonCTA: SaveButtonCta,
-                     lottieUrl: String) {
+fun CollapsiblePager(
+    navController: NavController,
+    pages: List<EducationCard>,
+    saveButtonCTA: SaveButtonCta,
+    lottieUrl: String
+) {
     val pagerState = rememberPagerState()
-    val collapsedStates = remember { mutableStateListOf<Boolean>().apply { repeat(pages.size) { add(false) } } }
+    var expandedIndex by remember { mutableStateOf<Int?>(null) }
+    var isCTAShown = remember { mutableStateOf(false) }
 
     val bgColor by animateColorAsState(
         targetValue = Color(android.graphics.Color.parseColor(pages[pagerState.currentPage].backGroundColor)),
@@ -113,20 +116,17 @@ fun CollapsiblePager(navController: NavController,
             TopAppBar(
                 modifier = Modifier.statusBarsPadding(),
                 title = {
-                    Text(text = "Onboarding",
+                    Text(
+                        text = "Onboarding",
                         color = Color.White,
                         fontFamily = FontFamily(Font(R.font.inter_bold)),
                         fontSize = 16.sp,
-                        lineHeight = 24.sp) },
+                        lineHeight = 24.sp
+                    )
+                },
                 navigationIcon = {
                     val coroutineScope = rememberCoroutineScope()
-                    IconButton(
-                        onClick = {
-                            coroutineScope.launch {
-                                onBack(pagerState)
-                            }
-                        }
-                    ) {
+                    IconButton(onClick = { coroutineScope.launch { onBack(pagerState) } }) {
                         Icon(
                             painter = painterResource(id = R.drawable.icon_back_button),
                             contentDescription = "Back",
@@ -137,178 +137,140 @@ fun CollapsiblePager(navController: NavController,
                 backgroundColor = Color.Transparent,
                 elevation = 0.dp
             )
-        }, backgroundColor = bgColor
+        },
+        backgroundColor = bgColor
     ) { paddingValues ->
-
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
                 .background(Color(pages[pagerState.currentPage].backGroundColor.toColorInt()))
         ) {
+            // reset expand index when page changes
+            LaunchedEffect(pagerState.currentPage) {
+                expandedIndex = null
+            }
+
             VerticalPager(
                 count = pages.size,
                 state = pagerState,
                 modifier = Modifier.fillMaxSize()
             ) { pageIndex ->
                 val page = pages[pageIndex]
+                val isLastPage = pageIndex == pages.lastIndex
+                val anyCollapsedExpanded = expandedIndex != null
 
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp)
-                        .clip(RoundedCornerShape(16.dp))
-                        .border(
-                            BorderStroke(
-                                width = 2.dp,
-                                brush = Brush.linearGradient(
-                                    colors = listOf(
-                                        Color(page.strokeStartColor.toColorInt()),
-                                        Color(page.strokeEndColor.toColorInt())
-                                    )
-                                )
-                            ),
-                            shape = RoundedCornerShape(16.dp)
-                        )
-                        .background(Color.Transparent)
-                ) {
-                    Box(
+                if (!isLastPage || (isLastPage && !anyCollapsedExpanded)) {
+                    EducationCardUI(
+                        strokeStartColor = Color(page.strokeStartColor.toColorInt()),
+                        strokeEndColor = Color(page.strokeEndColor.toColorInt()),
+                        startGradient = Color(page.startGradient.toColorInt()),
+                        endGradient = Color(page.endGradient.toColorInt()),
+                        imageUrl = page.image,
+                        expandStateText = page.expandStateText
+                    )
+                }
+            }
+
+            // Collapsed cards
+            Column(modifier = Modifier.fillMaxWidth()) {
+                val indicesToShow = when {
+                    pagerState.currentPage == pages.lastIndex && expandedIndex != null -> {
+                        pages.indices
+                    }
+                    else -> {
+                        pages.indices.take(pagerState.currentPage)
+                    }
+                }
+
+                indicesToShow.forEach { pageIndex ->
+                    val page = pages[pageIndex]
+                    val isExpanded = expandedIndex == pageIndex
+
+                    val strokeStartColor = Color(page.strokeStartColor.toColorInt())
+                    val strokeEndColor = Color(page.strokeEndColor.toColorInt())
+                    val startGradientColor = Color(page.startGradient.toColorInt())
+                    val endGradientColor = Color(page.endGradient.toColorInt())
+
+                    Card(
                         modifier = Modifier
-                            .background(
-                                brush = Brush.linearGradient(
-                                    colors = listOf(
-                                        Color(page.startGradient.toColorInt()),
-                                        Color(page.endGradient.toColorInt())
-                                    )
-                                )
-                            )
-                            .padding(16.dp)
+                            .fillMaxWidth()
+                            .padding(horizontal = 24.dp, vertical = 8.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .shadow(4.dp, RoundedCornerShape(12.dp))
+                            .animateContentSize(),
+                        backgroundColor = startGradientColor
                     ) {
-                        Column(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            AsyncImage(
-                                model = page.image,
-                                contentDescription = null,
+                        Column(modifier = Modifier.fillMaxWidth()) {
+                            Row(
                                 modifier = Modifier
-                                    .fillMaxWidth(0.8f)
-                                    .height(340.dp)
-                                    .clip(RoundedCornerShape(12.dp)),
-                                contentScale = ContentScale.Crop
-                            )
+                                    .fillMaxWidth()
+                                    .padding(12.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                page.image?.let { res ->
+                                    AsyncImage(
+                                        model = res,
+                                        contentDescription = null,
+                                        modifier = Modifier
+                                            .size(30.dp)
+                                            .clip(CircleShape),
+                                        contentScale = ContentScale.Crop
+                                    )
+                                }
 
-                            Spacer(modifier = Modifier.height(16.dp))
+                                Text(
+                                    text = page.collapsedStateText,
+                                    fontSize = 14.sp,
+                                    lineHeight = 20.sp,
+                                    textAlign = TextAlign.Center,
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .padding(horizontal = 16.dp),
+                                    fontFamily = FontFamily(Font(R.font.inter_bold)),
+                                    color = Color.White,
+                                )
 
-                            Text(
-                                text = page.expandStateText,
-                                fontSize = 20.sp,
-                                lineHeight = 28.sp,
-                                textAlign = TextAlign.Center,
-                                modifier = Modifier.padding(horizontal = 16.dp),
-                                fontFamily = FontFamily(Font(R.font.inter_bold)),
-                                color = Color.White,
-                            )
+                                IconButton(onClick = {
+                                    expandedIndex = if (isExpanded) null else pageIndex
+                                }) {
+                                    Icon(
+                                        imageVector = if (isExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                                        contentDescription = null,
+                                        tint = Color.White
+                                    )
+                                }
+                            }
+
+                            if (isExpanded) {
+                                EducationCardUI(
+                                    strokeStartColor = strokeStartColor,
+                                    strokeEndColor = strokeEndColor,
+                                    startGradient = startGradientColor,
+                                    endGradient = endGradientColor,
+                                    imageUrl = page.image,
+                                    expandStateText = page.expandStateText
+                                )
+                            }
                         }
                     }
                 }
             }
 
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-            ) {
-                pages.indices
-                    .take(pagerState.currentPage)
-                    .forEach { pageIndex ->
-                        val page = pages[pageIndex]
-                        var expanded by remember { mutableStateOf(collapsedStates[pageIndex]) }
-
-                        Card(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 24.dp, vertical = 8.dp)
-                                .clip(RoundedCornerShape(12.dp))
-                                .shadow(4.dp, RoundedCornerShape(12.dp))
-                                .animateContentSize(),
-                            backgroundColor = Color(android.graphics.Color.parseColor(pages[pagerState.currentPage].startGradient))
-                        ) {
-                            Column(modifier = Modifier.fillMaxWidth()) {
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(12.dp),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    page.image?.let { res ->
-                                        AsyncImage(
-                                            model = res,
-                                            contentDescription = null,
-                                            modifier = Modifier
-                                                .size(30.dp)
-                                                .clip(CircleShape),
-                                            contentScale = ContentScale.Crop
-                                        )
-                                    }
-                                    Text(
-                                        text = page.collapsedStateText,
-                                        fontSize = 14.sp,
-                                        lineHeight = 20.sp,
-                                        textAlign = TextAlign.Center,
-                                        modifier = Modifier.padding(horizontal = 16.dp),
-                                        fontFamily = FontFamily(Font(R.font.inter_bold)),
-                                        color = Color.White,
-                                    )
-                                    IconButton(onClick = {
-                                        expanded = !expanded
-                                        collapsedStates[pageIndex] = expanded
-                                    }) {
-                                        Icon(
-                                            imageVector = if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
-                                            contentDescription = null,
-                                            tint = Color.White
-                                        )
-                                    }
-                                }
-
-                                if (expanded) {
-                                    AsyncImage(
-                                        model = page.image,
-                                        contentDescription = null,
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .height(340.dp),
-                                        contentScale = ContentScale.Crop
-                                    )
-                                    Text(
-                                        text = page.expandStateText,
-                                        fontSize = 20.sp,
-                                        lineHeight = 28.sp,
-                                        textAlign = TextAlign.Center,
-                                        modifier = Modifier.padding(horizontal = 16.dp),
-                                        fontFamily = FontFamily(Font(R.font.inter_bold)),
-                                        color = Color.White,
-                                    )
-                                }
-                            }
-                        }
-                    }
-            }
-
-            if (pagerState.currentPage == pages.lastIndex) {
+            // Save CTA button
+            if (pagerState.currentPage == pages.lastIndex || isCTAShown.value) {
+                isCTAShown.value = true
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(bottom = 24.dp),
                     contentAlignment = Alignment.BottomCenter
                 ) {
-                    SaveInGoldButton(
+                    SaveCTA(
                         lottieUrl = lottieUrl,
                         saveButtonCta = saveButtonCTA,
-                        onClick = {
-                            navController.navigate(Routes.landingScreen().route)
-                        }
+                        onClick = { navController.navigate(Routes.landingScreen().route) }
                     )
                 }
             }
@@ -317,7 +279,75 @@ fun CollapsiblePager(navController: NavController,
 }
 
 @Composable
-fun SaveInGoldButton(
+fun EducationCardUI(strokeStartColor: Color,
+                    strokeEndColor: Color,
+                    startGradient: Color,
+                    endGradient: Color,
+                    imageUrl: String,
+                    expandStateText: String) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(16.dp)
+            .clip(RoundedCornerShape(16.dp))
+            .border(
+                BorderStroke(
+                    width = 2.dp,
+                    brush = Brush.linearGradient(
+                        colors = listOf(
+                            strokeStartColor,
+                            strokeEndColor
+                        )
+                    )
+                ),
+                shape = RoundedCornerShape(16.dp)
+            )
+            .background(Color.Transparent)
+    ) {
+        Box(
+            modifier = Modifier
+                .background(
+                    brush = Brush.linearGradient(
+                        colors = listOf(
+                            startGradient,
+                            endGradient
+                        )
+                    )
+                )
+                .padding(16.dp)
+        ) {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                AsyncImage(
+                    model = imageUrl,
+                    contentDescription = null,
+                    modifier = Modifier
+                        .fillMaxWidth(0.8f)
+                        .height(340.dp)
+                        .clip(RoundedCornerShape(12.dp)),
+                    contentScale = ContentScale.Crop
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Text(
+                    text = expandStateText,
+                    fontSize = 20.sp,
+                    lineHeight = 28.sp,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                    fontFamily = FontFamily(Font(R.font.inter_bold)),
+                    color = Color.White,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun SaveCTA(
     lottieUrl: String,
     saveButtonCta: SaveButtonCta,
     onClick: () -> Unit
